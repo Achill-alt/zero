@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-#   Contract Management System  v1.1
+#   Contract Management System  v1.2
 #   Linux / macOS 一键启动脚本
 # ============================================================
 set -e
@@ -29,7 +29,7 @@ trap cleanup SIGINT SIGTERM
 
 echo ""
 echo -e "${CYAN}============================================================${NC}"
-echo -e "${CYAN}  Contract Management System  v1.1${NC}"
+echo -e "${CYAN}  Contract Management System  v1.2${NC}"
 echo -e "${CYAN}============================================================${NC}"
 echo ""
 
@@ -62,7 +62,7 @@ echo -e "${GREEN}[OK]${NC} Node $(node --version)"
 # ---- Install backend deps if missing ----
 $PYTHON -c "import fastapi, uvicorn, sqlalchemy" 2>/dev/null || {
     echo -e "${YELLOW}[INFO]${NC} Installing backend dependencies..."
-    pip install -r "$ROOT/backend/requirements.txt" -q
+    $PYTHON -m pip install -r "$ROOT/backend/requirements.txt" -q
 }
 
 # ---- Install frontend deps if missing ----
@@ -101,7 +101,7 @@ cd "$ROOT"
 # ---- Start frontend ----
 echo -e "${YELLOW}[INFO]${NC} Starting frontend on port 5173..."
 cd "$ROOT/frontend"
-node "$ROOT/frontend/node_modules/vite/bin/vite.js" --host 127.0.0.1 > "$LOGS_DIR/frontend.log" 2>&1 &
+npx vite --host 127.0.0.1 > "$LOGS_DIR/frontend.log" 2>&1 &
 FRONTEND_PID=$!
 cd "$ROOT"
 

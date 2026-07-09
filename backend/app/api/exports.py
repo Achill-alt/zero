@@ -75,7 +75,7 @@ def export_pdf(
     try:
         buffer = export_contracts_pdf(contracts)
     except RuntimeError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=503, detail=str(e))
     filename = f"contracts_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     return StreamingResponse(
         buffer,

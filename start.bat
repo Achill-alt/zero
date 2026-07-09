@@ -1,13 +1,13 @@
 @echo off
 setlocal enabledelayedexpansion
 chcp 65001 >nul 2>&1
-title Contract Management System v1.1
+title Contract Management System v1.2
 
 set "ROOT=%~dp0"
 
 echo.
 echo ============================================================
-echo   Contract Management System  v1.1
+echo   Contract Management System  v1.2
 echo ============================================================
 echo.
 
@@ -21,13 +21,22 @@ for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":5173 " ^| findstr "LISTENIN
 )
 
 REM ---- Check Python ----
-where python >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [ERROR] Python not found. Install Python 3.10+ first.
+set "PYTHON_CMD="
+where python3 >nul 2>&1
+if %errorlevel% equ 0 (
+    set "PYTHON_CMD=python3"
+) else (
+    where python >nul 2>&1
+    if %errorlevel% equ 0 (
+        set "PYTHON_CMD=python"
+    )
+)
+if "%PYTHON_CMD%"=="" (
+    echo [ERROR] Python not found. Install Python 3.11+ first.
     pause
     exit /b 1
 )
-python --version 2>&1
+%PYTHON_CMD% --version 2>&1
 
 REM ---- Check Node.js ----
 where node >nul 2>&1
@@ -38,11 +47,21 @@ if %errorlevel% neq 0 (
 )
 node --version 2>&1
 
+REM ---- Copy .env if not present ----
+if not exist "%ROOT%backend\.env" (
+    copy "%ROOT%backend\.env.example" "%ROOT%backend\.env" >nul
+    echo [INFO] Created backend\.env from .env.example
+)
+if not exist "%ROOT%frontend\.env" (
+    copy "%ROOT%frontend\.env.example" "%ROOT%frontend\.env" >nul
+    echo [INFO] Created frontend\.env from .env.example
+)
+
 REM ---- Install backend deps if missing ----
-python -c "import fastapi, uvicorn, sqlalchemy" >nul 2>&1
+%PYTHON_CMD% -c "import fastapi, uvicorn, sqlalchemy" >nul 2>&1
 if %errorlevel% neq 0 (
     echo [INFO] Installing backend dependencies...
-    pip install -r "%ROOT%backend\requirements.txt" -q
+    %PYTHON_CMD% -m pip install -r "%ROOT%backend\requirements.txt" -q
 )
 
 REM ---- Install frontend deps if missing ----
@@ -55,9 +74,9 @@ if not exist "%ROOT%frontend\node_modules" (
 
 REM ---- Init database if missing ----
 if not exist "%ROOT%backend\app.db" (
-    echo [INFO] Initializing database...
+    echo [INFO] Initializing database and seed data...
     cd /d "%ROOT%backend"
-    python seed.py
+    %PYTHON_CMD% seed.py
     cd /d "%ROOT%"
 )
 
@@ -68,13 +87,13 @@ REM ---- Start backend ----
 echo.
 echo [INFO] Starting backend on port 8000...
 cd /d "%ROOT%backend"
-start /b "" cmd /c "python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > %ROOT%logs\backend.log 2>&1"
+start /b "" cmd /c "%PYTHON_CMD% -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > %ROOT%logs\backend.log 2>&1"
 cd /d "%ROOT%"
 
-REM ---- Start frontend (node directly, not npm) ----
+REM ---- Start frontend ----
 echo [INFO] Starting frontend on port 5173...
 cd /d "%ROOT%frontend"
-start /b "" cmd /c "node %ROOT%frontend\node_modules\vite\bin\vite.js --host 127.0.0.1 > %ROOT%logs\frontend.log 2>&1"
+start /b "" cmd /c "npx vite --host 127.0.0.1 > %ROOT%logs\frontend.log 2>&1"
 cd /d "%ROOT%"
 
 REM ---- Wait for services ----

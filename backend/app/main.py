@@ -1,10 +1,20 @@
 from contextlib import asynccontextmanager
 import os
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import engine, Base, init_fts5, SessionLocal
 from app.services.search_service import reindex_all_contracts
+
+logger = logging.getLogger("uvicorn")
+
+# Checked once at import time — weasyprint needs GTK3/Pango/Cairo system libs
+try:
+    from weasyprint import HTML  # noqa: F401
+    _WEASYPRINT_AVAILABLE = True
+except (OSError, ImportError):
+    _WEASYPRINT_AVAILABLE = False
 
 
 @asynccontextmanager
@@ -18,6 +28,12 @@ async def lifespan(app: FastAPI):
         reindex_all_contracts(db)
     finally:
         db.close()
+    if not _WEASYPRINT_AVAILABLE:
+        logger.warning(
+            "WeasyPrint is not available — PDF export will return 503. "
+            "Install GTK3/Pango/Cairo system libraries to enable PDF export. "
+            "See https://doc.courtbouillon.org/weasyprint/stable/first_steps.html"
+        )
     yield
 
 
@@ -34,7 +50,12 @@ app.add_middleware(
 
 @app.get("/api/v1/health")
 def health_check():
-    return {"status": "ok", "app": settings.app_name, "version": settings.app_version}
+    return {
+        "status": "ok",
+        "app": settings.app_name,
+        "version": settings.app_version,
+        "pdf_available": _WEASYPRINT_AVAILABLE,
+    }
 
 
 from app.api import auth, contracts, approvals, approval_chains, search, templates, users, audit_logs, attachments, notifications, exports  # noqa: E402,F401

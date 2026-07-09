@@ -10,7 +10,9 @@
           <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item command="excel">导出 Excel (.xlsx)</el-dropdown-item>
-              <el-dropdown-item command="pdf">导出 PDF (.pdf)</el-dropdown-item>
+              <el-dropdown-item command="pdf" :disabled="!pdfAvailable">
+                导出 PDF (.pdf)<span v-if="!pdfAvailable" style="font-size:10px;color:#909399;margin-left:4px">（需 GTK3）</span>
+              </el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
@@ -83,8 +85,22 @@ const total = ref(0)
 const search = ref('')
 const filterStatus = ref('')
 const filterType = ref('')
+const pdfAvailable = ref(true)  // optimistic until health check completes
 
-onMounted(() => fetchList())
+onMounted(() => { fetchList(); checkHealth() })
+
+async function checkHealth(): Promise<void> {
+  try {
+    const baseURL = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+    const res = await fetch(`${baseURL}/health`)
+    if (res.ok) {
+      const data = await res.json()
+      pdfAvailable.value = data.pdf_available !== false
+    }
+  } catch {
+    // If health check fails, keep optimistic default (pdfAvailable=true)
+  }
+}
 
 async function fetchList(): Promise<void> {
   loading.value = true
@@ -108,6 +124,11 @@ async function fetchList(): Promise<void> {
 }
 
 async function handleExport(format: 'excel' | 'pdf'): Promise<void> {
+  if (format === 'pdf' && !pdfAvailable.value) {
+    ElMessage.warning('PDF 导出需要系统依赖（GTK3/Pango/Cairo），当前环境不支持。请使用 Excel 导出。')
+    return
+  }
+
   const params = new URLSearchParams()
   if (filterStatus.value) params.set('status', filterStatus.value)
   if (filterType.value) params.set('type', filterType.value)

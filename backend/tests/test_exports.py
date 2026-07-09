@@ -88,14 +88,14 @@ class TestExports:
         assert resp.status_code == 200
 
     def test_export_pdf_requires_weasyprint(self, client):
-        """PDF export: returns 200 if GTK installed, 500 with clear error otherwise."""
+        """PDF export: returns 200 if GTK installed, 503 with clear error otherwise."""
         headers = _get_auth_headers(client)
         _create_contract(client, headers)
 
         resp = client.get("/api/v1/contracts/export/pdf", headers=headers)
-        # 200 = GTK installed and working; 500 = GTK missing (expected on Windows)
-        assert resp.status_code in (200, 500)
-        if resp.status_code == 500:
+        # 200 = GTK installed and working; 503 = GTK missing (expected on Windows)
+        assert resp.status_code in (200, 503)
+        if resp.status_code == 503:
             assert "WeasyPrint" in resp.json()["detail"]
 
     def test_export_requires_auth(self, client):

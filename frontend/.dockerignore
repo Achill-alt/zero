@@ -1,0 +1,29 @@
+# Node
+node_modules/
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Environment (contains secrets)
+.env
+
+# Docker (don't recurse)
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Test
+playwright-report/
+test-results/
