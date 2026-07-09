@@ -15,7 +15,14 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 })
 
 api.interceptors.response.use(
-  (response) => response.data,
+  (response) => {
+    // For binary responses (blob/arraybuffer), return the full response
+    // so callers can access response.data (the Blob)
+    if (response.config.responseType === 'blob' || response.config.responseType === 'arraybuffer') {
+      return response
+    }
+    return response.data
+  },
   (error) => {
     const status: number | undefined = error.response?.status
     const msg: string = error.response?.data?.detail || error.message || '请求失败'

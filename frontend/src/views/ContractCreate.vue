@@ -35,7 +35,7 @@
           <el-col :span="12"><el-form-item label="结束日期" prop="end_date"><el-date-picker v-model="form.end_date" type="date" placeholder="选择日期" style="width:100%" /></el-form-item></el-col>
         </el-row>
         <el-form-item label="合同内容" prop="content">
-          <el-input v-model="form.content" type="textarea" :rows="10" placeholder="请输入合同内容..." />
+          <RichTextEditor v-model="form.content" placeholder="请输入合同内容..." @blur="formRef?.validateField('content')" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :loading="saving" @click="saveDraft">保存草稿</el-button>
@@ -52,6 +52,7 @@ import { reactive, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { contractApi } from '../api/contracts'
+import RichTextEditor from '../components/RichTextEditor.vue'
 
 interface Template {
   id: number

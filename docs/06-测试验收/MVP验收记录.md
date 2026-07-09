@@ -1,23 +1,25 @@
 # MVP 验收记录
 
-- 文档版本：v1.0
+- 文档版本：v1.2
 - 文档状态：已确认
-- 验收日期：2026-07-08
-- 验收依据：`docs/06-测试验收/测试与验收方案.md` v1.0，`docs/04-实施计划/MVP开发任务清单.md` v1.0
+- 验收日期：2026-07-08（MVP v1.0）/ 2026-07-09（v1.2 更新）
+- 验收依据：`docs/06-测试验收/测试与验收方案.md` v1.0，`docs/04-实施计划/MVP开发任务清单.md` v1.0，`docs/08-优化迭代/后续迭代规划.md`
 
 ## 1. 验收概述
 
-对"企业合同管理系统"MVP 版本进行全链路验收测试，覆盖认证、合同 CRUD、审批流转、全文检索、模板管理、用户管理、到期预警、审计日志、权限校验等 13 个测试场景共 45 个验收项。
+对企业合同管理系统进行全链路验收测试。MVP v1.0 覆盖 13 个测试场景 45 个验收项。v1.2 迭代新增 Playwright 浏览器自动化测试（36 个用例）和导出/附件/通知等后端测试（23 个用例）。
 
 ## 2. 验收结果汇总
 
-| 维度 | 结果 |
-|------|------|
-| L1 单元测试 | ✅ 21/21 通过 (100%) |
-| L2 E2E 验收测试 | ✅ 45/45 通过 (100%) |
-| 核心用户旅程 | ✅ 9/9 通过 |
-| 阻塞性问题 | ✅ 0 个 |
-| 任务清单完成率 | ✅ 57/57 (100%) |
+| 维度 | v1.0 MVP | v1.2 当前 |
+|------|----------|-----------|
+| L1 单元测试 (pytest) | ✅ 21/21 | ✅ **44/44** |
+| L2 E2E 验收 (Python) | ✅ 45/45 | ✅ 45/45 |
+| L3 Playwright E2E (浏览器) | — | ✅ **36/36** |
+| 核心用户旅程 | ✅ 9/9 | ✅ 9/9 |
+| 阻塞性问题 | ✅ 0 | ✅ 0 |
+| TypeScript 类型检查 | — | ✅ 0 错误 |
+| 前端 Production Build | ✅ 通过 | ✅ 5.47s |
 
 ## 3. L1 单元测试结果
 
@@ -158,8 +160,35 @@ tests/test_contracts.py::test_submit_contract_for_approval PASSED
 
 系统已满足答辩演示所需的全部功能要求，可进入答辩 PPT 准备及项目复盘阶段。
 
+## 7. v1.2 Playwright E2E 测试（2026-07-09）
+
+基于 Playwright 1.61 + Chromium 的浏览器端到端测试，覆盖全部 15 个页面。
+
+**测试结果：36/36 passed (1.4m)**
+
+| 套件 | 测试数 | 覆盖页面 |
+|------|--------|----------|
+| 01-auth.spec.ts | 9 | Login |
+| 02-contract-crud.spec.ts | 8 | ContractList, ContractCreate, ContractDetail |
+| 03-approval-flow.spec.ts | 3 | ApprovalCenter, ContractDetail |
+| 04-admin.spec.ts | 10 | UserManage, ApprovalChainConfig, AuditLogs, Register |
+| 05-other-pages.spec.ts | 6 | Dashboard, Search, Notifications, Expiring, Templates |
+
+详见：`docs/08-优化迭代/Playwright-E2E-测试.md`
+
+## 8. v1.2 新增功能验收（2026-07-09）
+
+| 功能 | 后端测试 | E2E 覆盖 | 状态 |
+|------|----------|----------|------|
+| 附件上传 | 7 cases | — | ✅ |
+| 站内通知 | 10 cases | — | ✅ |
+| 数据导出 (Excel/PDF) | 6 cases | — | ✅ |
+| 富文本编辑器 (TipTap) | — | 02-contract-crud | ✅ |
+| 种子数据重构 | — | — | ✅ 8 合同 × 4 模板 × 12 通知 × 10 审计日志 |
+
 ## 确认记录
 
 | 日期 | 版本 | 状态 | 说明 |
 |------|------|------|------|
 | 2026-07-08 | v1.0 | 已确认 | MVP 验收通过 |
+| 2026-07-09 | v1.2 | 已更新 | v1.1 + v1.2 迭代验收：44 pytest + 36 Playwright 全部通过 |

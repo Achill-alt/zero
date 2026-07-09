@@ -2,9 +2,22 @@
   <div class="contract-list">
     <div class="page-header">
       <h2>合同管理</h2>
-      <el-button type="primary" @click="$router.push('/contracts/create')">
-        <el-icon><Plus /></el-icon> 拟制合同
-      </el-button>
+      <div style="display:flex;gap:8px">
+        <el-dropdown @command="handleExport">
+          <el-button>
+            导出 <el-icon><ArrowDown /></el-icon>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="excel">导出 Excel (.xlsx)</el-dropdown-item>
+              <el-dropdown-item command="pdf">导出 PDF (.pdf)</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+        <el-button type="primary" @click="$router.push('/contracts/create')">
+          <el-icon><Plus /></el-icon> 拟制合同
+        </el-button>
+      </div>
     </div>
     <div class="toolbar">
       <el-input v-model="search" placeholder="搜索合同标题..." style="width:250px" clearable />
@@ -92,6 +105,38 @@ async function fetchList(): Promise<void> {
       total.value = res.data.total as number
     }
   } finally { loading.value = false }
+}
+
+async function handleExport(format: 'excel' | 'pdf'): Promise<void> {
+  const params = new URLSearchParams()
+  if (filterStatus.value) params.set('status', filterStatus.value)
+  if (filterType.value) params.set('type', filterType.value)
+  if (search.value.trim()) params.set('search', search.value.trim())
+
+  const token = localStorage.getItem('token')
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+  const url = `${baseURL}/contracts/export/${format}?${params.toString()}`
+
+  try {
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ detail: '导出失败' }))
+      ElMessage.error(err.detail || '导出失败')
+      return
+    }
+    const blob = await response.blob()
+    const ext = format === 'excel' ? 'xlsx' : 'pdf'
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `contracts_${new Date().toISOString().slice(0, 10)}.${ext}`
+    a.click()
+    URL.revokeObjectURL(a.href)
+    ElMessage.success(`已导出 ${format === 'excel' ? 'Excel' : 'PDF'}`)
+  } catch {
+    ElMessage.error('导出失败')
+  }
 }
 
 async function handleWithdraw(row: ContractItem): Promise<void> {

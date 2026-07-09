@@ -21,7 +21,7 @@
       </el-card>
 
       <el-card header="合同内容" style="margin-top:16px">
-        <div v-html="contract.content || '(无内容)'" style="min-height:100px;white-space:pre-wrap" />
+        <div v-html="sanitizedContent" style="min-height:100px" />
       </el-card>
 
       <el-card header="附件" style="margin-top:16px">
@@ -95,6 +95,7 @@ import { approvalApi } from '../api/approvals'
 import { attachmentApi } from '../api/attachments'
 import api from '../api'
 import { statusTag, statusText, typeText } from '../composables/useStatus'
+import { sanitizeHtml } from '../composables/useSanitize'
 
 interface Contract {
   id: number
@@ -169,6 +170,12 @@ const canWithdraw = computed<boolean>(() => {
   if (!authStore.user) return false
   if (contract.value.creator_id !== authStore.user.id) return false
   return approvalHistory.value.some(h => h.status === 'in_progress')
+})
+
+const sanitizedContent = computed<string>(() => {
+  const raw = contract.value?.content || ''
+  if (!raw.trim() || raw === '<p></p>') return '(无内容)'
+  return sanitizeHtml(raw)
 })
 
 const uploadAction = computed<string>(() => {

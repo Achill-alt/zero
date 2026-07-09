@@ -37,7 +37,7 @@ def health_check():
     return {"status": "ok", "app": settings.app_name, "version": settings.app_version}
 
 
-from app.api import auth, contracts, approvals, approval_chains, search, templates, users, audit_logs, attachments, notifications  # noqa: E402,F401
+from app.api import auth, contracts, approvals, approval_chains, search, templates, users, audit_logs, attachments, notifications, exports  # noqa: E402,F401
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(contracts.router, prefix="/api/v1/contracts", tags=["contracts"])
@@ -49,3 +49,4 @@ app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 app.include_router(audit_logs.router, prefix="/api/v1/audit-logs", tags=["audit-logs"])
 app.include_router(attachments.router, prefix="/api/v1", tags=["attachments"])
 app.include_router(notifications.router, prefix="/api/v1", tags=["notifications"])
+app.include_router(exports.router, prefix="/api/v1", tags=["exports"])

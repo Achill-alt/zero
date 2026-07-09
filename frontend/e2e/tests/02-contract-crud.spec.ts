@@ -40,7 +40,8 @@ test.describe('Contract CRUD', () => {
     await page.waitForTimeout(500)
     // Verify form elements exist
     await expect(createPage.titleInput).toBeVisible()
-    await expect(page.locator('textarea').first()).toBeVisible()
+    // Rich text editor (TipTap) instead of textarea
+    await expect(page.locator('.rich-text-editor').first()).toBeVisible()
     // Should have save draft button
     await expect(createPage.saveDraftBtn).toBeVisible()
   })
