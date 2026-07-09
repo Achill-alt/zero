@@ -20,19 +20,32 @@ for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":5173 " ^| findstr "LISTENIN
     taskkill /f /pid %%a >nul 2>&1
 )
 
-REM ---- Check Python ----
+REM ---- Check Python (prefer python over python3 to avoid Windows Store stub) ----
 set "PYTHON_CMD="
-where python3 >nul 2>&1
-if %errorlevel% equ 0 (
-    set "PYTHON_CMD=python3"
+where python >nul 2>&1
+if !errorlevel! equ 0 (
+    set "PYTHON_CMD=python"
 ) else (
-    where python >nul 2>&1
-    if %errorlevel% equ 0 (
-        set "PYTHON_CMD=python"
+    where python3 >nul 2>&1
+    if !errorlevel! equ 0 (
+        set "PYTHON_CMD=python3"
     )
 )
 if "%PYTHON_CMD%"=="" (
     echo [ERROR] Python not found. Install Python 3.11+ first.
+    echo         If Python is installed but not found, try:
+    echo         1. Run: python --version  in a new terminal
+    echo         2. Reinstall Python with "Add to PATH" checked
+    echo         3. Disable "App Execution Aliases" for python3.exe in Windows Settings
+    pause
+    exit /b 1
+)
+REM Verify the python command actually works (some Windows Store stubs hang)
+%PYTHON_CMD% --version >nul 2>&1
+if !errorlevel! neq 0 (
+    echo [ERROR] Found %PYTHON_CMD% but it cannot run. It may be a Windows Store stub.
+    echo         Disable "App Execution Aliases" for python/python3 in Windows Settings
+    echo         Settings ^> Apps ^> Advanced app settings ^> App execution aliases
     pause
     exit /b 1
 )

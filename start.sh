@@ -44,12 +44,20 @@ if lsof -ti:5173 >/dev/null 2>&1; then
     lsof -ti:5173 | xargs kill -9 2>/dev/null || true
 fi
 
-# ---- Check Python ----
-if ! command -v python3 &>/dev/null && ! command -v python &>/dev/null; then
+# ---- Check Python (validate command actually runs; Windows Store stubs fail) ----
+PYTHON=""
+for candidate in python python3; do
+    if command -v "$candidate" >/dev/null 2>&1 && "$candidate" --version >/dev/null 2>&1; then
+        PYTHON="$candidate"
+        break
+    fi
+done
+if [ -z "$PYTHON" ]; then
     echo -e "${RED}[ERROR]${NC} Python not found. Install Python 3.11+ first."
+    echo "         If Python is installed but not detected, check Windows"
+    echo "         Settings > Apps > App execution aliases (disable python3.exe stub)"
     exit 1
 fi
-PYTHON=$(command -v python3 || command -v python)
 echo -e "${GREEN}[OK]${NC} $($PYTHON --version)"
 
 # ---- Check Node.js ----
