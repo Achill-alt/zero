@@ -4,9 +4,16 @@ import ElementPlus from 'element-plus'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import 'element-plus/dist/index.css'
 import './styles/tokens.css'
-import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import App from './App.vue'
 import router from './router'
+
+// Tree-shake: only import 18 icons actually used (was 2000+ via import *)
+import {
+  Plus, Edit, Checked, Clock, ArrowDown,
+  SwitchButton, HomeFilled, Document, Search,
+  Bell, Files, User, Setting, List, Collection,
+  CircleCheck, Warning, Loading,
+} from '@element-plus/icons-vue'
 
 const app = createApp(App)
 
@@ -22,9 +29,15 @@ app.use(createPinia())
 app.use(router)
 app.use(ElementPlus, { locale: zhCn })
 
-// Register all icons
-for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
-  app.component(key, component as Component)
+// Register used icons globally (keeps Dashboard.vue dynamic <component :is> working)
+const icons: Record<string, Component> = {
+  Plus, Edit, Checked, Clock, ArrowDown,
+  SwitchButton, HomeFilled, Document, Search,
+  Bell, Files, User, Setting, List, Collection,
+  CircleCheck, Warning, Loading,
+}
+for (const [key, component] of Object.entries(icons)) {
+  app.component(key, component)
 }
 
 app.mount('#app')

@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 import os
 import logging
+from functools import lru_cache
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
@@ -9,12 +10,17 @@ from app.services.search_service import reindex_all_contracts
 
 logger = logging.getLogger("uvicorn")
 
-# Checked once at import time — weasyprint needs GTK3/Pango/Cairo system libs
-try:
-    from weasyprint import HTML  # noqa: F401
-    _WEASYPRINT_AVAILABLE = True
-except (OSError, ImportError):
-    _WEASYPRINT_AVAILABLE = False
+
+@lru_cache(maxsize=1)
+def _check_weasyprint() -> bool:
+    """Check if WeasyPrint is available (requires GTK3/Pango/Cairo system libs).
+    Lazily evaluated on first call to avoid ~150ms import penalty at startup.
+    """
+    try:
+        from weasyprint import HTML  # noqa: F401
+        return True
+    except (OSError, ImportError):
+        return False
 
 
 @asynccontextmanager
@@ -22,18 +28,11 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     init_fts5()
     os.makedirs(settings.upload_dir, exist_ok=True)
-    # Reindex existing contracts with jieba segmentation (idempotent)
     db = SessionLocal()
     try:
         reindex_all_contracts(db)
     finally:
         db.close()
-    if not _WEASYPRINT_AVAILABLE:
-        logger.warning(
-            "WeasyPrint is not available — PDF export will return 503. "
-            "Install GTK3/Pango/Cairo system libraries to enable PDF export. "
-            "See https://doc.courtbouillon.org/weasyprint/stable/first_steps.html"
-        )
     yield
 
 
@@ -54,7 +53,7 @@ def health_check():
         "status": "ok",
         "app": settings.app_name,
         "version": settings.app_version,
-        "pdf_available": _WEASYPRINT_AVAILABLE,
+        "pdf_available": _check_weasyprint(),
     }
 
 

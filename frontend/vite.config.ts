@@ -11,6 +11,20 @@ export default defineConfig(({ mode }) => {
         '@': resolve(__dirname, 'src'),
       },
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id: string) {
+            if (id.includes('node_modules/element-plus') || id.includes('node_modules/@element-plus')) {
+              return 'vendor-element'
+            }
+            if (id.includes('node_modules/@tiptap')) {
+              return 'vendor-tiptap'
+            }
+          },
+        },
+      },
+    },
     server: {
       port: 5173,
       proxy: {
