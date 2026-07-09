@@ -1,11 +1,10 @@
 import { createApp, type Component } from 'vue'
 import { createPinia } from 'pinia'
-import ElementPlus from 'element-plus'
-import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import 'element-plus/dist/index.css'
 import './styles/tokens.css'
 import App from './App.vue'
 import router from './router'
+import { setupElementPlus } from './element-plus'
 
 // Tree-shake: only import 18 icons actually used (was 2000+ via import *)
 import {
@@ -27,7 +26,7 @@ window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => 
 
 app.use(createPinia())
 app.use(router)
-app.use(ElementPlus, { locale: zhCn })
+setupElementPlus(app)
 
 // Register used icons globally (keeps Dashboard.vue dynamic <component :is> working)
 const icons: Record<string, Component> = {

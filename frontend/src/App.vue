@@ -1,12 +1,15 @@
 <template>
-  <div class="app-container">
-    <div class="progress-bar" :class="{ active: visible, finish: progress === 100 }" :style="{ width: progress + '%' }" />
-    <AppLayout />
-  </div>
+  <el-config-provider :locale="zhCn">
+    <div class="app-container">
+      <div class="progress-bar" :class="{ active: visible, finish: progress === 100 }" :style="{ width: progress + '%' }" />
+      <AppLayout />
+    </div>
+  </el-config-provider>
 </template>
 
 <script setup lang="ts">
 import { onErrorCaptured } from 'vue'
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import AppLayout from './components/AppLayout.vue'
 import { useProgressBar } from './composables/useProgressBar'
 

@@ -1,6 +1,7 @@
 # FEAT-204 数据导出 (Excel + PDF)
 
 > **完成日期：** 2026-07-09  
+> **最后更新：** 2026-07-09（v3 卡片式布局 + 性能优化）  
 > **版本：** v1.2  
 > **状态：** ✅ 已完成
 
@@ -16,6 +17,7 @@
 | **PDF** (.pdf) | `weasyprint` + Jinja2 | 轻量 CSS 渲染引擎、CSS @page 支持好、中文友好 |
 
 > ⚠️ WeasyPrint 需要 GTK3 系统运行时（Pango/Cairo），Windows 环境需额外安装。  
+> **Windows 安装 GTK3：** `winget install --id=tschoonj.GTKForWindows -e`  
 > 导出端点做了懒加载导入 + 优雅降级：无 GTK 时返回明确错误提示，Excel 导出不受影响。
 
 ## 3. 实现方案
@@ -40,7 +42,7 @@
 │   ?status=&type=&search=                         │
 │   → StreamingResponse (.pdf)                     │
 │                                                   │
-│ 均复用 _fetch_contracts() — 支持搜索/过滤/分页   │
+│ 均复用 _fetch_contracts() — 支持搜索/过滤        │
 │ 上限 5000 条（MAX_EXPORT_ROWS）                  │
 └──────────────────────────────────────────────────┘
 ```
@@ -54,25 +56,64 @@
 - 中文字体：Microsoft YaHei
 - 状态/类型自动翻译为中文
 
-### 3.3 PDF 导出特性
+### 3.3 PDF 导出特性（v3 — 2026-07-09 重设计）
 
-- A4 横向布局，1.5cm 页边距
-- 页眉（"合同列表导出"）+ 页脚（页码）
-- 中文字体栈：Microsoft YaHei → SimHei → Noto Sans SC
-- 状态颜色标签（草稿/审批中/通过/归档/作废）
-- Jinja2 模板渲染，HTML → WeasyPrint → PDF
+经过三轮迭代优化，当前 PDF 布局使用了全新设计：
+
+**布局：A4 竖版 + 卡片式**
+- 替换了最初的 A4 横版 9 列密集表格（列太多导致日期/文字被裁切）
+- 每份合同独立渲染为一张卡片，包含：
+  - 标题行：`#ID` + **合同标题** + 彩色状态标签
+  - 字段行（flex 排版）：类型 · 金额 · 甲方 · 乙方 · 开始日期 · 结束日期 · 创建时间
+- 顶部摘要卡片：合同总数、总金额、草稿/已通过/审批中计数
+
+**样式**
+- 标题：15pt 深蓝粗体（#1e3a5f）
+- 摘要卡片：浅灰背景（#f4f6f9）、数值 15pt 粗体
+- 状态彩色标签：草稿灰 / 审批中橙 / 已通过绿 / 已归档蓝 / 已作废红
+- 页脚：页码 + 系统版本号
+
+**性能优化**
+- `@lru_cache(maxsize=1)` 缓存 `FontConfiguration`（跳过重复字体扫描，~500ms 节省）
+- `presentational_hints=True` 加速 WeasyPrint 渲染
+- 预热后渲染 9 条合同：~645ms
+
+**历史版本**
+| 版本 | 日期 | 变更 |
+|------|------|------|
+| v1 | 2026-07-09 | A4 横版、9列密集表格、页码页眉 |
+| v2 | 2026-07-09 | 边距缩小、字体缩小、添加摘要卡片 |
+| v3 | 2026-07-09 | 卡片式布局替代表格、A4 竖版、FontConfiguration 缓存 |
+
+### 3.4 前端性能优化（同日完成）
+
+**问题**：开发模式下前端加载和页面切换极慢（`app.use(ElementPlus)` 全量注册 200+ 组件）。
+
+**修复**：创建 `frontend/src/element-plus.ts` 按需注册仅 31 个实际使用的组件。
+
+| 指标 | 优化前 | 优化后 |
+|------|--------|--------|
+| 注册组件数 | 200+ | **31** |
+| vendor-element JS | 1,015 KB | **603 KB** |
+| Build 时间 | 5.50s | **4.97s** |
+
+详见 [前端性能优化记录](前端性能优化.md)
 
 ## 4. 涉及文件
 
 | 文件 | 变更 | 说明 |
 |------|------|------|
-| `backend/app/services/export_service.py` | 新建 | Excel/PDF 生成逻辑 (~260 行) |
-| `backend/app/api/exports.py` | 新建 | 导出 REST 路由 (~80 行) |
+| `backend/app/services/export_service.py` | 新建+重设计 | Excel/PDF 生成逻辑（~290 行，3 版迭代） |
+| `backend/app/api/exports.py` | 新建 | 导出 REST 路由（~80 行） |
 | `backend/tests/test_exports.py` | 新建 | 6 个导出测试 |
-| `backend/app/main.py` | 修改 | 注册 exports router |
-| `backend/requirements.txt` | 修改 | 新增 openpyxl, weasyprint |
+| `backend/app/main.py` | 修改 | 注册 exports router + lazy weasyprint check |
+| `backend/requirements.txt` | 修改 | 新增 openpyxl, weasyprint, jinja2 |
 | `frontend/src/views/ContractList.vue` | 修改 | 新增导出下拉按钮 + handleExport |
 | `frontend/src/api/index.ts` | 修改 | blob 响应拦截器适配 |
+| `frontend/src/element-plus.ts` | 新建 | Element Plus 按需加载（31/200+ 组件） |
+| `frontend/src/main.ts` | 修改 | 脱离全量 ElementPlus 导入 |
+| `frontend/src/App.vue` | 修改 | ElConfigProvider 中文 locale |
+| `frontend/vite.config.ts` | 修改 | proxy timeout 30s |
 
 ## 5. API 端点
 

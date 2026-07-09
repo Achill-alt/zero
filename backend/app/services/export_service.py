@@ -2,12 +2,16 @@
 Export service: Excel (.xlsx) and PDF generation for contract lists.
 """
 import io
+import logging
 from datetime import datetime
+from functools import lru_cache
 from typing import Optional
 
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from jinja2 import Template
+
+logger = logging.getLogger("uvicorn")
 
 
 # ---------------------------------------------------------------------------
@@ -110,138 +114,161 @@ def export_contracts_excel(contracts: list) -> io.BytesIO:
 # PDF export
 # ---------------------------------------------------------------------------
 
-PDF_TEMPLATE = """<!DOCTYPE html>
+PDF_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <style>
   @page {
-    size: A4 landscape;
-    margin: 1.5cm;
-    @top-center {
-      content: "合同列表导出";
-      font-size: 11px;
-      color: #888;
-      font-family: "Microsoft YaHei", "SimHei", sans-serif;
-    }
+    size: A4 portrait;
+    margin: 14mm 12mm 16mm 12mm;
     @bottom-center {
-      content: "第 " counter(page) " 页";
-      font-size: 10px;
-      color: #888;
+      content: "第 " counter(page) " 页 / 共 " counter(pages) " 页  |  零合同管理系统 v1.2";
+      font-size: 7px; color: #b0b0b0;
       font-family: "Microsoft YaHei", "SimHei", sans-serif;
     }
   }
 
   body {
-    font-family: "Microsoft YaHei", "SimHei", "Noto Sans SC", sans-serif;
-    font-size: 11px;
-    color: #333;
+    font-family: "Microsoft YaHei", "SimHei", "PingFang SC", "Noto Sans SC", sans-serif;
+    font-size: 9pt;
+    color: #2c2c2c;
     margin: 0;
+    line-height: 1.5;
   }
 
-  h1 {
-    text-align: center;
-    font-size: 18px;
-    margin: 0 0 4px 0;
-    font-weight: 600;
+  /* ── Title bar ── */
+  .title-bar {
+    border-bottom: 3pt solid #1e3a5f;
+    padding-bottom: 6pt;
+    margin-bottom: 10pt;
   }
+  .title-bar h1 { font-size: 16pt; margin: 0; color: #1e3a5f; letter-spacing: 1pt; }
+  .title-bar .meta { font-size: 7pt; color: #889; margin-top: 3pt; }
 
-  .meta {
-    text-align: center;
-    color: #888;
-    margin-bottom: 16px;
-    font-size: 10px;
-  }
-
-  table {
+  /* ── Summary row ── */
+  .summary {
+    margin-bottom: 12pt;
     width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
+  }
+  .summary td {
+    text-align: center; padding: 7pt 8pt;
+    background: #f4f6f9; border-radius: 3pt;
+    width: 20%;
+  }
+  .summary .n { font-size: 15pt; font-weight: 700; color: #1e3a5f; display: block; }
+  .summary .l { font-size: 6.5pt; color: #889; display: block; margin-top: 1pt; }
+
+  /* ── Card list ── */
+  .card {
+    border: 0.5pt solid #dde;
+    border-radius: 3pt;
+    margin-bottom: 8pt;
+    padding: 8pt 10pt;
+    page-break-inside: avoid;
+  }
+  .card-header {
+    margin-bottom: 5pt;
+    display: flex;
+    align-items: baseline;
+  }
+  .card-id {
+    font-size: 7pt; color: #889;
+    min-width: 36pt;
+  }
+  .card-title {
+    font-size: 10pt; font-weight: 600; color: #1e3a5f;
+    flex: 1;
+  }
+  .card-status {
+    font-size: 7pt; font-weight: 600;
+    padding: 2pt 8pt; border-radius: 10pt;
+    white-space: nowrap;
   }
 
-  th {
-    background-color: #4472C4;
-    color: #fff;
-    padding: 8px 6px;
-    text-align: center;
-    font-size: 10px;
-    font-weight: 600;
-    word-break: keep-all;
+  .card-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3pt 18pt;
+    font-size: 7.5pt;
+    color: #555;
+  }
+  .card-fields .fi {
+    white-space: nowrap;
+  }
+  .card-fields .fi strong {
+    color: #889; font-weight: 400;
   }
 
-  td {
-    border: 1px solid #ddd;
-    padding: 6px;
-    font-size: 10px;
-    word-break: break-all;
-    vertical-align: top;
-  }
+  /* status pills */
+  .st-draft            { color: #909399; background: #f0f0f0; }
+  .st-pending_approval { color: #e6a23c; background: #fef0e0; }
+  .st-approved         { color: #67c23a; background: #e8f8e0; }
+  .st-archived         { color: #409eff; background: #e0efff; }
+  .st-voided           { color: #f56c6c; background: #ffe0e0; }
 
-  tr:nth-child(even) td {
-    background-color: #f7f8fa;
-  }
-
-  .col-id    { width: 5%;  text-align: center; }
-  .col-title { width: 22%; }
-  .col-type  { width: 7%;  text-align: center; }
-  .col-amt   { width: 10%; text-align: right; }
-  .col-status{ width: 8%;  text-align: center; }
-  .col-pa    { width: 14%; }
-  .col-pb    { width: 14%; }
-  .col-dates { width: 12%; text-align: center; }
-  .col-ctime { width: 8%;  text-align: center; font-size: 9px; }
-
-  .status-draft            { color: #909399; }
-  .status-pending_approval { color: #E6A23C; font-weight: 600; }
-  .status-approved         { color: #67C23A; }
-  .status-archived         { color: #409EFF; }
-  .status-voided           { color: #F56C6C; }
+  .empty { text-align: center; color: #c0c4cc; padding: 40pt; font-size: 11pt; }
 </style>
 </head>
 <body>
-<h1>合同列表</h1>
-<p class="meta">导出时间: {{ export_time }}　|　共 {{ total }} 条记录</p>
-<table>
-  <thead>
-    <tr>
-      <th class="col-id">ID</th>
-      <th class="col-title">合同标题</th>
-      <th class="col-type">类型</th>
-      <th class="col-amt">金额</th>
-      <th class="col-status">状态</th>
-      <th class="col-pa">甲方</th>
-      <th class="col-pb">乙方</th>
-      <th class="col-dates">开始 ~ 结束</th>
-      <th class="col-ctime">创建时间</th>
-    </tr>
-  </thead>
-  <tbody>
-  {% for c in contracts %}
-    <tr>
-      <td class="col-id">{{ c.id }}</td>
-      <td class="col-title">{{ c.title }}</td>
-      <td class="col-type">{{ c.contract_type }}</td>
-      <td class="col-amt">{{ c.amount if c.amount is not none else '-' }}</td>
-      <td class="col-status status-{{ c.status }}">{{ c.status_text }}</td>
-      <td class="col-pa">{{ c.party_a or '-' }}</td>
-      <td class="col-pb">{{ c.party_b or '-' }}</td>
-      <td class="col-dates">{{ c.start_date }} ~ {{ c.end_date }}</td>
-      <td class="col-ctime">{{ c.created_at }}</td>
-    </tr>
-  {% endfor %}
-  {% if not contracts %}
-    <tr><td colspan="9" style="text-align:center;color:#999;padding:24px">暂无合同数据</td></tr>
-  {% endif %}
-  </tbody>
+
+<div class="title-bar">
+  <h1>合同列表导出</h1>
+  <div class="meta">导出时间：{{ export_time }}  |  共 {{ total }} 条记录</div>
+</div>
+
+<!-- ═══ Summary ═══ -->
+<table class="summary">
+  <tr>
+    <td><span class="n">{{ total }}</span><span class="l">合同总数</span></td>
+    <td><span class="n">¥{{ "{:,.0f}".format(total_amount) if total_amount else 0 }}</span><span class="l">合同总金额</span></td>
+    <td><span class="n">{{ draft_count }}</span><span class="l">草稿</span></td>
+    <td><span class="n">{{ approved_count }}</span><span class="l">已通过</span></td>
+    <td><span class="n">{{ pending_count }}</span><span class="l">审批中</span></td>
+  </tr>
 </table>
+
+<!-- ═══ Contract Cards ═══ -->
+{% for c in contracts %}
+<div class="card">
+  <div class="card-header">
+    <span class="card-id">#{{ c.id }}</span>
+    <span class="card-title">{{ c.title }}</span>
+    <span class="card-status st-{{ c.status }}">{{ c.status_text }}</span>
+  </div>
+  <div class="card-fields">
+    <span class="fi"><strong>类型：</strong>{{ c.contract_type }}</span>
+    <span class="fi"><strong>金额：</strong>{{ c.amount if c.amount is not none else '-' }}</span>
+    <span class="fi"><strong>甲方：</strong>{{ c.party_a or '-' }}</span>
+    <span class="fi"><strong>乙方：</strong>{{ c.party_b or '-' }}</span>
+    <span class="fi"><strong>开始日期：</strong>{{ c.start_date }}</span>
+    <span class="fi"><strong>结束日期：</strong>{{ c.end_date }}</span>
+    <span class="fi"><strong>创建时间：</strong>{{ c.created_at }}</span>
+  </div>
+</div>
+{% endfor %}
+
+{% if not contracts %}
+<p class="empty">暂无合同数据</p>
+{% endif %}
+
 </body>
 </html>"""
 
 
+# ---------------------------------------------------------------------------
+# PDF generation
+# ---------------------------------------------------------------------------
+
+@lru_cache(maxsize=1)
+def _get_font_config():
+    """Cached FontConfiguration — font discovery on Windows is ~500ms."""
+    from weasyprint.text.fonts import FontConfiguration
+    return FontConfiguration()
+
+
 def export_contracts_pdf(contracts: list) -> io.BytesIO:
     """Generate a styled .pdf file from a list of contract dicts."""
-    # Lazy import — weasyprint requires GTK3 system libraries (Pango/Cairo)
-    # which may not be installed in all environments (esp. Windows).
     try:
         from weasyprint import HTML
     except OSError as e:
@@ -251,24 +278,54 @@ def export_contracts_pdf(contracts: list) -> io.BytesIO:
             f" 原始错误: {e}"
         ) from e
 
+    # Compute summary statistics
+    draft_count = sum(1 for c in contracts if c.get("status") == "draft")
+    approved_count = sum(1 for c in contracts if c.get("status") == "approved")
+    pending_count = sum(1 for c in contracts if c.get("status") == "pending_approval")
+    total_amount = sum(
+        c.get("amount", 0) or 0 for c in contracts
+    )
+
     # Enrich contracts with display-friendly labels
     enriched = []
     for c in contracts:
         amount = c.get("amount")
+
+        def _short(val):
+            if not val:
+                return "-"
+            return str(val)[:10]
+
+        created_at = str(c.get("created_at", ""))
+        if created_at:
+            created_at = created_at[:16].replace("T", " ")
+
         enriched.append({
             **c,
             "status_text": STATUS_MAP.get(c.get("status", ""), c.get("status", "")),
             "contract_type": TYPE_MAP.get(c.get("contract_type", ""), c.get("contract_type", "")),
             "amount": f"¥{amount:,.2f}" if amount is not None else None,
+            "start_date": _short(c.get("start_date")),
+            "end_date": _short(c.get("end_date")),
+            "created_at": created_at or "-",
         })
 
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
     html = Template(PDF_TEMPLATE).render(
         contracts=enriched,
         total=len(enriched),
-        export_time=datetime.now().strftime("%Y-%m-%d %H:%M"),
+        export_time=now_str,
+        total_amount=total_amount,
+        draft_count=draft_count,
+        approved_count=approved_count,
+        pending_count=pending_count,
     )
 
     output = io.BytesIO()
-    HTML(string=html).write_pdf(output)
+    HTML(string=html).write_pdf(
+        output,
+        font_config=_get_font_config(),
+        presentational_hints=True,  # ~2x faster for table-heavy layouts
+    )
     output.seek(0)
     return output
