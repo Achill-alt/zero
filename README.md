@@ -89,7 +89,7 @@ zero/
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/<your-username>/zero.git
+git clone https://github.com/Achill-alt/zero.git
 cd zero
 
 # 2. 准备环境变量（首次）
