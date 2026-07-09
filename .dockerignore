@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Logs
+logs/
+*.log
+
+# Node
+node_modules/
+frontend/node_modules/
+
+# Build output
+frontend/dist/
+
+# Environment (contains secrets)
+.env
+
+# Docker (don't recurse)
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Test / coverage
+.coverage
+htmlcov/
+.pytest_cache/
+backend/.pytest_cache/
+
+# Data (generated at runtime)
+data/
+*.db
+uploads/

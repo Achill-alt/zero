@@ -1,0 +1,37 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: zero-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist all runtime data (SQLite DB + uploads)
+      - ./data:/app/data
+    environment:
+      - DATABASE_URL=sqlite:///./data/app.db
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - UPLOAD_DIR=./data/uploads
+    restart: unless-stopped
+    networks:
+      - zero-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: zero-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - zero-net
+
+networks:
+  zero-net:
+    driver: bridge
