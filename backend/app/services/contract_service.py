@@ -144,8 +144,11 @@ def _check_conditions(conditions: dict, contract: Contract) -> bool:
     return True
 
 
-def get_expiring_contracts(db: Session, days: int = 30, page: int = 1, page_size: int = 20):
-    """Return contracts expiring within `days`, computed in SQL via julianday()."""
+def get_expiring_contracts(db: Session, days: int = 30, page: int = 1, page_size: int = 20, upcoming_only: bool = False):
+    """Return contracts expiring within `days`, computed in SQL via julianday().
+
+    When `upcoming_only` is True, excludes already-expired contracts (days_left < 0).
+    """
     days_left_expr = (
         func.julianday(Contract.end_date) - func.julianday("now")
     ).label("days_left")
@@ -159,7 +162,20 @@ def get_expiring_contracts(db: Session, days: int = 30, page: int = 1, page_size
         )
     )
 
+    if upcoming_only:
+        base = base.filter(
+            func.julianday(Contract.end_date) - func.julianday("now") >= 0
+        )
+
     total = base.count()
+
+    # Count upcoming (non-expired) contracts separately — always computed
+    # so callers can distinguish "即将到期" from "已过期" without a second query.
+    upcoming_base = base.filter(
+        func.julianday(Contract.end_date) - func.julianday("now") >= 0
+    )
+    total_upcoming = upcoming_base.count() if not upcoming_only else total
+
     rows = (
         base.order_by(Contract.end_date.asc())
         .offset((page - 1) * page_size)
@@ -176,7 +192,7 @@ def get_expiring_contracts(db: Session, days: int = 30, page: int = 1, page_size
             "expired": days_left < 0,
         })
 
-    return {"items": items, "total": total, "page": page, "page_size": page_size}
+    return {"items": items, "total": total, "total_upcoming": total_upcoming, "page": page, "page_size": page_size}
 
 
 def get_templates(db: Session, page: int = 1, page_size: int = 20):

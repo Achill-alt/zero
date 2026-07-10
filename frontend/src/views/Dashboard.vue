@@ -129,7 +129,7 @@ onMounted(async () => {
     stats.value[1].value = pendingRes.data.total
     stats.value[2].value = archivedRes.data.total
     expiring.value = expRes.data.items
-    stats.value[3].value = expRes.data.total
+    stats.value[3].value = expRes.data.total_upcoming
   } finally {
     loading.value = false
   }

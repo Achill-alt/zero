@@ -153,10 +153,11 @@ def expiring_list(
     days: int = Query(30),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    upcoming_only: bool = Query(False),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    result = get_expiring_contracts(db, days, page, page_size)
+    result = get_expiring_contracts(db, days, page, page_size, upcoming_only)
     items = []
     for item in result["items"]:
         items.append({
@@ -164,7 +165,7 @@ def expiring_list(
             "days_left": item["days_left"],
             "expired": item["expired"],
         })
-    return {"data": {"items": items, "total": result["total"], "page": page, "page_size": page_size}, "message": "success"}
+    return {"data": {"items": items, "total": result["total"], "total_upcoming": result["total_upcoming"], "page": page, "page_size": page_size}, "message": "success"}
 
 
 @router.get("/templates/all", response_model=dict)
