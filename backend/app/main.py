@@ -2,7 +2,9 @@ from contextlib import asynccontextmanager
 import os
 import logging
 from functools import lru_cache
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import engine, Base, init_fts5, SessionLocal
@@ -45,6 +47,39 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Custom validation error handler — translate Pydantic errors to Chinese
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    errors = []
+    for error in exc.errors():
+        loc = error.get("loc", [])
+        field = loc[-1] if len(loc) > 0 else ""
+        if field in ("body", "__root__"):
+            field = ""
+        msg = error.get("msg", "")
+        err_type = error.get("type", "")
+
+        # Translate common Pydantic error messages to Chinese
+        ctx = error.get("ctx", {})
+        translation_map = {
+            "missing": f"「{field}」为必填项" if field else "缺少必填字段",
+            "string_type": f"「{field}」必须是文本",
+            "integer_type": f"「{field}」必须是整数",
+            "number_type": f"「{field}」必须是数字",
+            "string_too_short": f"「{field}」长度不足，至少需要 {ctx.get('min_length', '?')} 个字符",
+            "string_too_long": f"「{field}」超出长度限制，最多 {ctx.get('max_length', '?')} 个字符",
+            "value_error.any_str.min_length": f"「{field}」长度不足，至少需要 {ctx.get('limit_value', '?')} 个字符",
+            "value_error.any_str.max_length": f"「{field}」超出长度限制，最多 {ctx.get('limit_value', '?')} 个字符",
+        }
+        errors.append(translation_map.get(err_type, msg))
+    if not errors:
+        errors.append("请求参数校验失败")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": "；".join(errors)},
+    )
 
 
 @app.get("/api/v1/health")

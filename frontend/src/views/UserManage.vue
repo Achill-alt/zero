@@ -83,12 +83,24 @@ onMounted(async () => {
 })
 
 async function handleRegister(): Promise<void> {
-  await authApi.register(regForm.value as Record<string, unknown>)
-  ElMessage.success('用户已创建')
-  showRegister.value = false
-  regForm.value = { username: '', password: '123456', role: 'handler', approver_role: null, department: '', display_name: '' }
-  const res = await adminApi.users({ page: 1, page_size: 100 })
-  users.value = res.data.items as User[]
+  if (!regForm.value.username || regForm.value.username.length < 3) {
+    ElMessage.warning('用户名至少需要3个字符')
+    return
+  }
+  if (!regForm.value.password || regForm.value.password.length < 6) {
+    ElMessage.warning('密码至少需要6个字符')
+    return
+  }
+  try {
+    await authApi.register(regForm.value as Record<string, unknown>)
+    ElMessage.success('用户已创建')
+    showRegister.value = false
+    regForm.value = { username: '', password: '123456', role: 'handler', approver_role: null, department: '', display_name: '' }
+    const res = await adminApi.users({ page: 1, page_size: 100 })
+    users.value = res.data.items as User[]
+  } catch {
+    // 错误已由拦截器统一提示，这里只阻止异常传播
+  }
 }
 
 async function toggleUser(row: User, value: boolean): Promise<void> {

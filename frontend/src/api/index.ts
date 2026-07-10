@@ -25,7 +25,18 @@ api.interceptors.response.use(
   },
   (error) => {
     const status: number | undefined = error.response?.status
-    const msg: string = error.response?.data?.detail || error.message || '请求失败'
+    const detail = error.response?.data?.detail
+    let msg: string
+
+    // FastAPI 422 validation error: detail is array of {loc, msg, type}
+    if (Array.isArray(detail)) {
+      msg = detail.map((e: { loc: string[]; msg: string }) => {
+        const field = e.loc?.slice(-1)[0] || ''
+        return field ? `${field}: ${e.msg}` : e.msg
+      }).join('；')
+    } else {
+      msg = (detail as string) || error.message || '请求失败'
+    }
 
     if (status === 401) {
       localStorage.removeItem('token')
